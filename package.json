@@ -18,5 +18,9 @@
   "bugs": {
     "url": "https://github.com/liukeyi300/data-intensive/issues"
   },
-  "homepage": "https://github.com/liukeyi300/data-intensive#readme"
+  "homepage": "https://github.com/liukeyi300/data-intensive#readme",
+  "devDependencies": {
+    "@types/node": "^8.0.57",
+    "typescript": "^2.6.2"
+  }
 }
