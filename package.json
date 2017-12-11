@@ -1,0 +1,22 @@
+{
+  "name": "data-intensive",
+  "version": "0.1.0",
+  "description": "intensify the data from backend-server",
+  "main": "index.js",
+  "bin": {
+    "test": "bin/test.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/liukeyi300/data-intensive.git"
+  },
+  "author": "liukeyi <liukeyi@meituan.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/liukeyi300/data-intensive/issues"
+  },
+  "homepage": "https://github.com/liukeyi300/data-intensive#readme"
+}
