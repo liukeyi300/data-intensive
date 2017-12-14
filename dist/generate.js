@@ -5,68 +5,89 @@ Object.defineProperty(exports, "__esModule", { value: true });
  */
 var path = require('path');
 var fs = require('fs');
+var ejs = require('ejs');
 var transform_1 = require("./transform");
-function generateDir(path, dir) {
-}
-function generateIndexFile() { }
-function isSimpleType(v) {
-    return ['[object Boolean]', '[object String]', '[object Number]', '[object Array]'].indexOf(Object.prototype.toString.call(v)) > -1;
-}
-function transformObjectToNode(originData) {
-    var result = {
-        properties: [],
-        childNode: []
-    };
-    if (Object.entries) {
-        for (var _i = 0, _a = Object.entries(originData); _i < _a.length; _i++) {
-            var _b = _a[_i], key = _b[0], value = _b[1];
-            if (isSimpleType(value)) {
-                result.properties.push({
-                    key: key,
-                    value: value
-                });
-            }
-            else {
-                result.childNode.push({
-                    key: key,
-                    value: transformObjectToNode(value)
-                });
-            }
+var utils_1 = require("./utils");
+var file = fs.readFileSync(path.resolve(__dirname, '../template/jsclass.template.ejs'), {
+    encoding: 'utf-8'
+});
+var jsTemplate = ejs.compile(file);
+function generateIndexFile(baseDir, tree) {
+    var map = tree.properties.map(function (property) {
+        var v = property.value;
+        if (utils_1.isString(v)) {
+            v = "'" + v + "'";
         }
+        else if (utils_1.isBoolean(v)) {
+            v = "" + v;
+        }
+        else if (utils_1.isArray(v)) {
+            v = "[" + v + "]";
+        }
+        return {
+            key: property.key,
+            value: v
+        };
+    });
+    var childMap = tree.childNode.map(function (node) {
+        return {
+            key: node.key,
+            value: node.value
+        };
+    });
+    fs.writeFileSync(path.resolve(baseDir, './index.js'), jsTemplate({
+        map: map,
+        childMap: childMap
+    }));
+}
+function generate(baseDir, tree) {
+    if (!fs.existsSync(baseDir)) {
+        fs.mkdirSync(baseDir);
     }
-    else {
-        Object.keys(originData).forEach(function (key) {
-            var value = originData[key];
-            if (isSimpleType(value)) {
-                result.properties.push({
-                    key: key,
-                    value: value
-                });
+    if (!fs.existsSync(baseDir)) {
+        console.log('cannot generate dir!');
+        return -1;
+    }
+    generateIndexFile(baseDir, tree);
+    if (tree.childNode.length === 0) {
+        return 0;
+    }
+    tree.childNode.forEach(function (node) {
+        generate(path.resolve(baseDir, "./" + node.key), node.value);
+    });
+}
+module.exports = function (input, output) {
+    console.log("inputPath: " + input + ", outputPath: " + output);
+    console.log('check file......');
+    var inputFilePath = path.isAbsolute(input) ? input : path.resolve(process.cwd(), input);
+    var outputFilePath = path.isAbsolute(output) ? output : path.resolve(process.cwd(), output);
+    if (fs.existsSync(inputFilePath)) {
+        console.log('check file success!');
+        if (fs.existsSync(outputFilePath)) {
+            utils_1.deleteFolder(outputFilePath);
+        }
+        fs.mkdir(outputFilePath, function (err) {
+            if (err) {
+                console.log('cannot generate dir');
+                console.log(err);
+                return -1;
             }
-            else {
-                result.childNode.push({
-                    key: key,
-                    value: transformObjectToNode(value)
-                });
+            var jsonFile = fs.readFileSync(inputFilePath, {
+                encoding: 'utf-8'
+            });
+            try {
+                var originData = JSON.parse(jsonFile);
+                var tree = transform_1.transformObjectToTree(originData);
+                return generate(outputFilePath, tree);
+            }
+            catch (e) {
+                console.log(e);
+                return -1;
             }
         });
     }
-    return result;
-}
-module.exports = function generate(startNode, test) {
-    var jsonFile = fs.readFileSync(path.resolve(__dirname, '../test/test.json'), {
-        encoding: 'utf-8'
-    });
-    try {
-        var originData = JSON.parse(jsonFile);
-        var node = transform_1.transformObjectToTree(originData);
-        for (var _i = 0, _a = node.properties; _i < _a.length; _i++) {
-            var property = _a[_i];
-            console.log(property.key);
-            console.log(property.value);
-        }
-    }
-    catch (e) {
-        console.log(e);
+    else {
+        console.log('input file isn`t exist');
+        return -1;
     }
 };

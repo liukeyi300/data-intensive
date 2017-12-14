@@ -3,76 +3,105 @@
  */
 const path = require('path');
 const fs = require('fs');
+const ejs = require('ejs');
 
 import { IPropertyTree, IMap } from './interface';
 import { transformObjectToTree } from './transform';
+import { isString, isBoolean, isArray, isNumber, deleteFolder } from './utils';
 
-function generateDir (path: string, dir: string) {
+const file: string = fs.readFileSync(path.resolve(__dirname, '../template/jsclass.template.ejs'), {
+    encoding: 'utf-8'
+});
 
-}
+const jsTemplate = ejs.compile(file);
 
-function generateIndexFile () {}
-
-function isSimpleType (v: any) {
-    return ['[object Boolean]', '[object String]', '[object Number]', '[object Array]'].indexOf(Object.prototype.toString.call(v)) > -1;
-}
-
-function transformObjectToNode (originData: object): IPropertyTree {
-    let result: IPropertyTree = {
-        properties: [],
-        childNode: []
-    };
-
-    if (Object.entries) {
-        for (let [key, value] of Object.entries(originData)) {
-            if (isSimpleType(value)) {
-                result.properties.push({
-                    key,
-                    value
-                });
-            } else {
-                result.childNode.push({
-                    key,
-                    value: transformObjectToNode(value)
-                });
-            }
+function generateIndexFile (baseDir: string, tree: IPropertyTree) {
+    const map = tree.properties.map((property: IMap<any>) => {
+        let v = property.value;
+        if (isString(v)) {
+            v = `\'${v}\'`;
+        } else if (isBoolean(v)) {
+            v = `${v}`;
+        } else if (isArray(v)) {
+            v = `[${v}]`
         }
-    } else {
-        Object.keys(originData).forEach((key) => {
-            const value = originData[key];
-            if (isSimpleType(value)) {
-                result.properties.push({
-                    key,
-                    value
-                });
-            } else {
-                result.childNode.push({
-                    key,
-                    value: transformObjectToNode(value)
-                });
-            }
-        });
-    }
 
-
-    return result;
-}
-
-module.exports = function generate (startNode: IPropertyTree, test: any) {
-    const jsonFile = fs.readFileSync(path.resolve(__dirname, '../test/test.json'), {
-        encoding: 'utf-8'
+        return {
+            key: property.key,
+            value: v
+        };
     });
 
-    try {
-        const originData: object = JSON.parse(jsonFile);
+    const childMap = tree.childNode.map((node: IMap<IPropertyTree>) => {
+        return {
+            key: node.key,
+            value: node.value
+        };
+    });
 
-        const node: IPropertyTree = transformObjectToTree(originData);
+    fs.writeFileSync(path.resolve(baseDir, './index.js'), jsTemplate({
+        map,
+        childMap
+    }));
+}
 
-        for (let property of node.properties) {
-            console.log(property.key);
-            console.log(property.value);
+function generate (baseDir: string, tree: IPropertyTree): number {
+    if (!fs.existsSync(baseDir)) {
+        fs.mkdirSync(baseDir);
+    }
+
+    if (!fs.existsSync(baseDir)) {
+        console.log('cannot generate dir!');
+        return -1;
+    }
+
+    generateIndexFile(baseDir, tree);
+
+    if (tree.childNode.length === 0) {
+        return 0;
+    }
+
+    tree.childNode.forEach((node: IMap<IPropertyTree>) => {
+        generate(path.resolve(baseDir, `./${node.key}`), node.value);
+    });
+}
+
+module.exports = function (input: string, output: string): number {
+    console.log(`inputPath: ${input}, outputPath: ${output}`);
+    console.log('check file......');
+
+    let inputFilePath: string = path.isAbsolute(input) ? input : path.resolve(process.cwd(), input);
+    let outputFilePath: string = path.isAbsolute(output) ? output : path.resolve(process.cwd(), output);
+
+    if (fs.existsSync(inputFilePath)) {
+        console.log('check file success!');
+        if (fs.existsSync(outputFilePath)) {
+            deleteFolder(outputFilePath);
         }
-    } catch (e) {
-        console.log(e);
+
+        fs.mkdir(outputFilePath, function (err) {
+            if (err) {
+                console.log('cannot generate dir');
+                console.log(err);
+                return -1;
+            }
+
+            const jsonFile: string = fs.readFileSync(inputFilePath, {
+                encoding: 'utf-8'
+            });
+
+            try {
+                const originData: object = JSON.parse(jsonFile);
+                const tree: IPropertyTree = transformObjectToTree(originData);
+
+                return generate(outputFilePath, tree);
+            } catch (e) {
+                console.log(e);
+                return -1;
+            }
+        });
+    } else {
+        console.log('input file isn`t exist');
+        return -1;
     }
 };
