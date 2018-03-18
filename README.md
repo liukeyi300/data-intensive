@@ -1,3 +1,3 @@
-# Data Intensive
+# Data Intensive (obsoleted)
 
-## the whole repo had removed to Data Enhancer
+## the whole repo had been removed to Data Enhancer
